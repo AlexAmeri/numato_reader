@@ -1,0 +1,108 @@
+#include <stdio.h>
+#include "platform.h"
+#include "xil_printf.h"
+#include "xparameters.h"
+#include "xgpiops.h"
+#include "xgpio.h"
+#include "xstatus.h"
+#include "xplatform_info.h"
+
+#define GPIOPS_DEVICE_ID	XPAR_XGPIOPS_0_DEVICE_ID
+#define GPIO_DEVICE_ID  XPAR_GPIO_0_DEVICE_ID
+
+XGpioPs GpioPS;	// The driver instance for MIO PS GPIO Device.
+XGpio Gpio;		// The driver instance for the PL GPIO Device.
+
+//These are the MIO pins connected to the JF header
+#define pin1_mioreader 13
+#define pin2_mioreader 10
+#define pin3_mioreader 11
+#define pin4_mioreader 12
+
+
+#define pin7_mioreader 0
+#define pin8_mioreader 9
+#define pin9_mioreader 14
+#define pin10_mioreader 15
+
+void initMIO_mioreader(){
+	int Status;
+	XGpioPs_Config *ConfigPtr;
+
+	/* Initialize the GPIO driver. */
+	ConfigPtr = XGpioPs_LookupConfig(GPIOPS_DEVICE_ID);
+	Status = XGpioPs_CfgInitialize(&GpioPS, ConfigPtr,
+					ConfigPtr->BaseAddr);
+
+	if (Status != XST_SUCCESS) {
+		return XST_FAILURE;
+	}
+
+	/* Set the direction for the JF header pins to be inputs. */
+	XGpioPs_SetDirectionPin(&GpioPS, pin1_mioreader, 0x0);
+	XGpioPs_SetDirectionPin(&GpioPS, pin2_mioreader, 0x0);
+	XGpioPs_SetDirectionPin(&GpioPS, pin3_mioreader, 0x0);
+	XGpioPs_SetDirectionPin(&GpioPS, pin4_mioreader, 0x0);
+	XGpioPs_SetDirectionPin(&GpioPS, pin7_mioreader, 0x0);
+	XGpioPs_SetDirectionPin(&GpioPS, pin8_mioreader, 0x0);
+	XGpioPs_SetDirectionPin(&GpioPS, pin9_mioreader, 0x0);
+	XGpioPs_SetDirectionPin(&GpioPS, pin10_mioreader, 0x0);
+}
+
+void initPLGPIO_mioreader(){
+	int Status;
+
+	/* Initialize the GPIO driver */
+	Status = XGpio_Initialize(&Gpio, GPIO_DEVICE_ID);
+	if (Status != XST_SUCCESS) {
+		xil_printf("Gpio Initialization Failed\r\n");
+		return XST_FAILURE;
+	}
+
+	// Set the direction for all signals as inputs
+	XGpio_SetDataDirection(&Gpio, 1, 0x0000);
+}
+
+void readVoltageFromMIO(u32 *DataRead, u32 pin){
+	*DataRead = XGpioPs_ReadPin(&GpioPS, pin);
+}
+
+void displayMIOInputsToLED(){
+	u32 mask = 0x0000;
+	u32 DataRead;
+
+	readVoltageFromMIO(&DataRead, pin1_mioreader);
+	mask = mask | DataRead;
+	DataRead = 0x0000;
+	readVoltageFromMIO(&DataRead, pin2_mioreader);
+	mask = mask | DataRead << 1;
+	DataRead = 0x0000;
+	readVoltageFromMIO(&DataRead, pin3_mioreader);
+	mask = mask | DataRead << 2;
+	DataRead = 0x0000;
+	readVoltageFromMIO(&DataRead, pin4_mioreader);
+	mask = mask | DataRead << 3;
+	DataRead = 0x0000;
+	XGpio_DiscreteWrite(&Gpio, 1, mask);
+
+}
+
+/*
+ * If you want to use the MIO functionality of this code in your projects,
+ * make sure to delete the main() function here.
+ *
+ * To use this code in your project,
+ */
+int main()
+{
+    init_platform();
+    initMIO_mioreader();
+    initPLGPIO_mioreader();
+    print("Hello World 4\n\r");
+    u32 Data;
+    while(1) {
+    	displayMIOInputsToLED();
+    }
+    cleanup_platform();
+    return 0;
+}
